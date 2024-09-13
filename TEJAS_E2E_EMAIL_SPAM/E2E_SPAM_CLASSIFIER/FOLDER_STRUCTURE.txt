@@ -1,0 +1,48 @@
+- Root folder: 2_E2E_SPAM_CLASSIFIER
+  |
+  |-- docker_airflow
+  |   |
+  |   |-- dags
+          spam_classifier_retraining.py
+  |   |
+  |   |-- scripts
+  |       |
+  |       |-- project_spam_classifier
+  |           |
+  |           |-- dataset
+  |           |   |
+  |           |   |-- spam_assassin.csv
+  |           |   |-- training_data.csv
+  |           |   |-- spam_emails.csv
+  |           |
+  |           |-- Dockerfile
+  |           |-- drift_detection.py
+  |           |-- model_retrain.py
+  |           |-- requirements.txt
+  |
+  |-- spam_backend
+  |   |
+  |   |-- app
+  |       |
+  |       |-- server.py
+  |       |-- spam_classifier_pipeline.pkl
+  |       |-- Dockerfile
+  |       |-- requirements.txt
+  |
+  |-- spam_frontend
+  |   |-- app.py
+  |   |-- Dockerfile
+  |   |-- requirements.txt
+  |
+  |-- storage
+      |-- spam_assassin.csv
+      |-- training_data.csv
+  |-- docker-compose.yaml
+  |-- Docker_Conatiners_In_Docker_Desktop.png
+  |-- Docker_Conatiners_In_Docker_Desktop2.png
+  |-- Folder_STRUCTURE.txt
+  |-- not_spam.png
+  |-- PUT_IN_STREAMLIT_APP.txt
+  |-- Spam_Ham_Classifier.ipynb
+  |-- STREAM_APP_UI.png
+  |-- unknown_email.png
