@@ -1,2 +1,2 @@
 # EMAIL_SPAM_HAM_DETECTION_E2E
-This is an end to end machine learning AI and NLP project including model building, deployment, model monitoring and retraining.
+This is an end to end machine learning AI and NLP project including model building, deployment, model monitoring and retraining. It demonstrates the use of several tools like MLFLOW for model building and experiment tracking, streamlit for app front-end, Docker for MLOps operations, Apache Airflow and EvidentlyAI for model/data drift detection, automated model retraining based on pre determined triggers or schedule. 
