@@ -1,0 +1,875 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": "# https://pub.towardsai.net/end-to-end-machine-learning-project-development-spam-classifier-9fe6ca4efed2 "
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Cornellius Yudha Wijaya Mar, 2024 Towards AI"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "If we say an end-to-end machine learning project doesn't stop when it is developed, it's only halfway. A machine Learning project succeeds \n",
+    "if the model is in production and creates continuous value for the business.\n",
+    "\n",
+    "Many beginners in data science and machine learning only focus on the data analysis and model development part, which is understandable, as\n",
+    "the other department often does the deployment process. However, creating an end-to-end machine learning project has now become a necessity."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "1. Establish a Data Science Project\n",
+    "2. Spam Classifier Development\n",
+    "  - EDA and Model Development\n",
+    "  - Model Development and Experiment Tracking with MLFlow \n",
+    "  THIS MUCH IS COVERED IN THIS JUPYTER NOTEBOOK. THE PORTION BELOW IS IN ANOTHER PROJECT\n",
+    "3. Model Deployment with FastAPI and Docker\n",
+    "  - Spam Classifier Back-end\n",
+    "  - Spam Classifier Front-end\n",
+    "  - Combining Back-end and Front-end with Docker Compose\n",
+    "4. Data Drift Detection and Model Retraining Trigger\n",
+    "  - Data Drift Detection with Evidently AI\n",
+    "  - Model Retraining Script\n",
+    "  - Airflow for Model Retraining\n",
+    "5. Conclusion"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "import pandas as pd\n",
+    "import seaborn as sns\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "import warnings\n",
+    "warnings.filterwarnings('ignore')"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Take data in. Data ingestion"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "df = pd.read_csv('spam_assassin.csv')\n",
+    "df.head()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Data_cleaning and preprocessing"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "cols_to_keep = ['text','target']\n",
+    "df = df[cols_to_keep]\n",
+    "df.head()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "df.tail()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "df.shape"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "df.dtypes"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# count if there are Nan values in dataset 'text' column\n",
+    "sum(df['text'].isna())"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# drop all rows where 'text' column has NaN values\n",
+    "df.dropna(subset=['text'], inplace=True)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# count if there are Nan values in dataset 'target' column\n",
+    "sum(df['target'].isna())"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# As there are more than 5000 records drop these rows\n",
+    "# too\n",
+    "df.dropna(subset=['target'], inplace=True)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# check if NaNs are removed\n",
+    "print(sum(df['text'].isna()))\n",
+    "print(sum(df['target'].isna()))"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Add two more columns \n",
+    "df['text_length'] = df['text'].apply(len)\n",
+    "df['email_words'] = df['text'].str.split().apply(len)\n",
+    "df.head()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "df.dtypes"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "#checking for rows where 'target' column has values\n",
+    "# other than '0' or '1'\n",
+    "invalid_rows = df.loc[(df['target'] != '0') & (df['target'] != '1')]\n",
+    "print(len(invalid_rows))\n",
+    "invalid_rows"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# drop invalid_rows Or keep only valid rows\n",
+    "clean_df = df[(df['target'] == '0') | (df['target'] == '1')]\n",
+    "clean_df.shape"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Convert 'target' column from object to integer\n",
+    "clean_df['target'] = clean_df['target'].astype(int)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "clean_df.dtypes"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Visual Analytics"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Using Seaborn to see the differences between spam and non-spam for the number of words.\n",
+    "import seaborn as sns\n",
+    "import matplotlib.pyplot as plt\n",
+    "\n",
+    "# Create a new DataFrame with numerical columns\n",
+    "num_df = clean_df[['text_length', 'email_words', 'target']]\n",
+    "\n",
+    "# Plot histograms for text length\n",
+    "sns.histplot(num_df[num_df['target'] == 0]['text_length'], color='blue', label='Non-Spam', kde=False, log_scale=True)\n",
+    "sns.histplot(num_df[num_df['target'] == 1]['text_length'], color='orange', label='Spam', kde=False, log_scale=True)\n",
+    "\n",
+    "plt.xlabel('Length of Email')\n",
+    "plt.ylabel('Count of Emails')\n",
+    "plt.title('Distribution of Email Text Length for Spam and Non-Spam Emails')\n",
+    "plt.legend()\n",
+    "plt.show()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Plot histograms for eamil_words\n",
+    "sns.histplot(num_df[num_df['target'] == 0]['email_words'], color='blue', label='Non-Spam', kde=False, log_scale=True)\n",
+    "sns.histplot(num_df[num_df['target'] == 1]['email_words'], color='orange', label='Spam', kde=False, log_scale=True)\n",
+    "\n",
+    "plt.xlabel('Number 0f words in email')\n",
+    "plt.ylabel('Count of Emails')\n",
+    "plt.title('Distribution of email_words for Spam and Non-Spam Emails')\n",
+    "plt.legend()\n",
+    "plt.show()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Some more data preprocessing"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Find count of records with target == 0 and \n",
+    "# target == 1\n",
+    "target_counts = clean_df['target'].value_counts()\n",
+    "\n",
+    "# Print the counts\n",
+    "print(\"Count of records with target == 0:\", target_counts[0])\n",
+    "print(\"Count of records with target == 1:\", target_counts[1])"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Using under sampling to create a balanced dataset\n",
+    "from imblearn.under_sampling import RandomUnderSampler\n",
+    "\n",
+    "# Assuming df is your pandas DataFrame\n",
+    "# Separate features and target variable\n",
+    "X = clean_df[['text','text_length', 'email_words']]\n",
+    "y = clean_df['target']\n",
+    "\n",
+    "# Initialize RandomUnderSampler\n",
+    "undersampler = RandomUnderSampler(random_state=42)\n",
+    "\n",
+    "# Resample the dataset\n",
+    "X_resampled, y_resampled = undersampler.fit_resample(X, y)\n",
+    "\n",
+    "# Create a new balanced DataFrame\n",
+    "balanced_df = pd.concat([X_resampled, y_resampled], axis=1)\n",
+    "\n",
+    "# Check the class distribution in the balanced DataFrame\n",
+    "print(balanced_df['target'].value_counts())"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "\n",
+    "print(balanced_df.shape)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Finally, visualize the complete preprocessed data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Plot histograms for text length for balanced data\n",
+    "sns.histplot(num_df[num_df['target'] == 0]['text_length'], color='blue', label='Non-Spam', kde=False, log_scale=True)\n",
+    "sns.histplot(num_df[num_df['target'] == 1]['text_length'], color='orange', label='Spam', kde=False, log_scale=True)\n",
+    "\n",
+    "plt.xlabel('Length of Email')\n",
+    "plt.ylabel('Count of Emails')\n",
+    "plt.title('Distribution of Email Text Length for Spam and Non-Spam Emails')\n",
+    "plt.legend()\n",
+    "plt.show()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Plot histograms for eamil_words for balanced data\n",
+    "sns.histplot(num_df[num_df['target'] == 0]['email_words'], color='blue', label='Non-Spam', kde=False, log_scale=True)\n",
+    "sns.histplot(num_df[num_df['target'] == 1]['email_words'], color='orange', label='Spam', kde=False, log_scale=True)\n",
+    "\n",
+    "plt.xlabel('Number 0f words in email')\n",
+    "plt.ylabel('Count of Emails')\n",
+    "plt.title('Distribution of email_words for Spam and Non-Spam Emails')\n",
+    "plt.legend()\n",
+    "plt.show()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Above plots show that spam emails have a considerably longer  word-count and length  than non-spam emails."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# NOW SWITCH TO COMMAND LINE/ TERMINAL\n",
+    "# EXECUTE pip install mlflow (REQUIRED ONCE ONLY)\n",
+    "# execute mlflow ui (REQUIRED EVERY TIME YOU RUN THIS EXPERIMENT)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "PS D:\\EMAIL_SPAM_HAM_CLASSIFICATION\\SPAM_ASSASSIN_PROJECT> mlflow ui\n",
+    "INFO:waitress:Serving on http://127.0.0.1:5000 "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "![Here_is_mlflow_ui_running_in_browser](MLFLOW_UI.png)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Model Development and Experiment Tracking with MLFlow"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# create train-test data-set\n",
+    "#Splitting the dataset into training and test. \n",
+    "from sklearn.model_selection import train_test_split\n",
+    "X_train, X_test, y_train, y_test = train_test_split(balanced_df.drop('target', axis =1), balanced_df['target'], test_size = 0.2, stratify = balanced_df['target'], random_state = 42)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "X_train.head()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "X_train.shape"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "# Concatenate X_train and y_train along axis=1 to form training_data we will require it for model drift analysis\n",
+    "training_data = pd.concat([X_train, y_train], axis=1)\n",
+    "print(training_data.shape)\n",
+    "\n",
+    "# Save training_data as training_data.csv\n",
+    "training_data.to_csv('training_data.csv', index=False)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "import mlflow\n",
+    "\n",
+    "EXPERIMENT_NAME = \"SPAMASSASSIN_EMAIL_SPAM_HAM_CLASSIFIER1\"\n",
+    "EXPERIMENT_ID = mlflow.create_experiment(EXPERIMENT_NAME)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Refresh the page so that you can view the newly created experiment"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# If you need to access this experiment once more, we could do that with code below:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "current_experiment=dict(mlflow.get_experiment_by_name(EXPERIMENT_NAME))\n",
+    "experiment_id=current_experiment['experiment_id']\n",
+    "print(current_experiment)\n",
+    "print(experiment_id)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Define experiment tracking function. We will not call that function as yet"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "import mlflow.data\n",
+    "from mlflow.data.pandas_dataset import PandasDataset\n",
+    "from sklearn.model_selection import cross_validate\n",
+    "from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer\n",
+    "from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall_score, f1_score\n",
+    "from sklearn.naive_bayes import MultinomialNB\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn.ensemble import RandomForestClassifier\n",
+    "from xgboost import XGBClassifier\n",
+    "\n",
+    "# Set the MLflow tracking URI\n",
+    "mlflow.set_tracking_uri(uri=\"http://127.0.0.1:5000\")\n",
+    "\n",
+    "def evaluate_models(train_data, train_labels, experiment_id):\n",
+    "    print(experiment_id)\n",
+    "    \n",
+    "    training_df = pd.concat([X_train['text'], y_train], axis =1).reset_index(drop = True)\n",
+    "    # Models to evaluate\n",
+    "    models = {\n",
+    "        \"Naive Bayes\": MultinomialNB(),\n",
+    "        \"Logistic Regression\": LogisticRegression(),\n",
+    "        \"Random Forest\": RandomForestClassifier(),\n",
+    "        \"XGBoost\": XGBClassifier(use_label_encoder=False, eval_metric='logloss')\n",
+    "    }\n",
+    "\n",
+    "    # Metrics\n",
+    "    scoring = {'accuracy': make_scorer(accuracy_score),\n",
+    "               'precision': make_scorer(precision_score),\n",
+    "               'recall': make_scorer(recall_score),\n",
+    "               'f1': make_scorer(f1_score)}\n",
+    "\n",
+    "    # Vectorizations\n",
+    "    vectorizers = {\n",
+    "        \"BoW\": CountVectorizer(),\n",
+    "        \"TF-IDF\": TfidfVectorizer()\n",
+    "    }\n",
+    "    \n",
+    "    results = []\n",
+    "    for vect_name, vectorizer in vectorizers.items():\n",
+    "            X = vectorizer.fit_transform(train_data)\n",
+    "\n",
+    "            for model_name, model in models.items():\n",
+    "                vect_mod_name = vect_name +'_'+model_name\n",
+    "                # Cross-Validate the model\n",
+    "                RUN_NAME = f\"run_{vect_mod_name}\"\n",
+    "                mlflow.end_run()\n",
+    "                with mlflow.start_run(experiment_id=experiment_id, run_name=RUN_NAME) as run:\n",
+    "                    # Retrieve run id\n",
+    "                    RUN_ID = run.info.run_id\n",
+    "\n",
+    "                    cv_results = cross_validate(model, X, train_labels, scoring=['accuracy', 'precision', 'recall', 'f1'], cv=3, return_train_score=False)\n",
+    "                    for i in range(3):\n",
+    "                        iteration_result = {\n",
+    "                            'Iteration': i + 1,\n",
+    "                            'Model': model_name,\n",
+    "                            'Vectorizer': vect_name,\n",
+    "                            'Accuracy': cv_results['test_accuracy'][i],\n",
+    "                            'Precision': cv_results['test_precision'][i],\n",
+    "                            'Recall': cv_results['test_recall'][i],\n",
+    "                            'F1 Score': cv_results['test_f1'][i]\n",
+    "                        }\n",
+    "                        results.append(iteration_result)                       \n",
+    "                    # Calculating the metrics means\n",
+    "                    mean_result = {\n",
+    "                        'Iteration': 'Mean',\n",
+    "                        'Model': model_name,\n",
+    "                        'Vectorizer': vect_name,\n",
+    "                        'Accuracy': np.mean(cv_results['test_accuracy']),\n",
+    "                        'Precision': np.mean(cv_results['test_precision']),\n",
+    "                        'Recall': np.mean(cv_results['test_recall']),\n",
+    "                        'F1 Score': np.mean(cv_results['test_f1'])\n",
+    "                    }\n",
+    "                    results.append(mean_result)\n",
+    "                    \n",
+    "                    \n",
+    "                    # Track metrics\n",
+    "                    mlflow.log_metric(f\"cv_3_{vect_mod_name}_accuracy\", mean_result['Accuracy'])\n",
+    "                    mlflow.log_metric(f\"cv_3_{vect_mod_name}_precision\", mean_result['Precision'])\n",
+    "                    mlflow.log_metric(f\"cv_3_{vect_mod_name}_recall\", mean_result['Recall'])\n",
+    "                    mlflow.log_metric(f\"cv_3_{vect_mod_name}_f1\", mean_result['F1 Score'])\n",
+    "                    # Track model\n",
+    "                    model.fit(X, train_labels)\n",
+    "                    training_df[\"ModelOutput\"] = model.predict(X)\n",
+    "                    dataset = mlflow.data.from_pandas(training_df, targets=\"target\", predictions=\"ModelOutput\", name = f\"data_{vect_mod_name}\")\n",
+    "                    mlflow.log_input(dataset, context=\"training\")\n",
+    "                    \n",
+    "                    if model_name == \"XGBoost\":\n",
+    "                        mlflow.xgboost.log_model(model, \"model\")\n",
+    "                    else:\n",
+    "                        mlflow.sklearn.log_model(model, \"model\")\n",
+    "                                \n",
+    "                    mlflow.end_run() \n",
+    "        \n",
+    " \n",
+    "    return pd.DataFrame(results)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "X_train['text']"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "y_train"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": "# Below we call the experiment-tracking function Keep On refreshing mlflow page to see model training live."
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "email_res = evaluate_models(X_train['text'], y_train, experiment_id)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Define a function for Visualizing model results"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "def viz_result_metric(data):\n",
+    "    plt.figure(figsize=(15, 8))\n",
+    "\n",
+    "    metrics = ['Accuracy', 'Precision', 'Recall', 'F1 Score']\n",
+    "    for i, metric in enumerate(metrics, 1):\n",
+    "        plt.subplot(2, 2, i)\n",
+    "        sns.lineplot(data=data, x='Iteration', y=metric, hue='Model', style='Vectorizer', markers=True)\n",
+    "        plt.title(f'Model Performance: {metric}')\n",
+    "        plt.xlabel('Iteration')\n",
+    "        plt.ylabel(metric)\n",
+    "        plt.legend(title='Models / Vectorizer', bbox_to_anchor=(1.05, 1), loc='upper left')\n",
+    "\n",
+    "    plt.tight_layout()\n",
+    "    plt.show()"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Visualize the data iteration but exclude the metrics Mean"
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "viz_result_metric( email_res[email_res['Iteration'] != 'Mean'])"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# create data-pipeline"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "from sklearn.pipeline import Pipeline\n",
+    "from sklearn.feature_extraction.text import CountVectorizer\n",
+    "from xgboost import XGBClassifier\n",
+    "\n",
+    "vectorizer = CountVectorizer()\n",
+    "xgboost_classifier = XGBClassifier(use_label_encoder=False, eval_metric='logloss')  \n",
+    "\n",
+    "# Creating a pipeline for the whole process\n",
+    "pipeline = Pipeline([\n",
+    "    ('vectorizer', vectorizer),\n",
+    "    ('classifier', xgboost_classifier)\n",
+    "])\n",
+    "\n",
+    "pipeline.fit(X_train['text'], y_train)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# create the model object with Pickle."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "metadata": {},
+   "source": [
+    "import pickle\n",
+    "\n",
+    "with open('spam_classifier_pipeline.pkl', 'wb') as file:\n",
+    "    pickle.dump(pipeline, file)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Always better to immediately load the pickle mode to check (1) that corrupted model is not saved (2) That model predicts properly on some test case"
+  },
+  {
+   "metadata": {},
+   "cell_type": "code",
+   "source": [
+    "import pickle\n",
+    "filename = 'spam_classifier_pipeline.pkl'\n",
+    "\n",
+    "with open(filename, 'rb') as file:\n",
+    "    model = pickle.load(file)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Test a ham test case. See that it looks like a spam but model correctly predicts it as Ham. Since it is spam-assassin log file it looks 'weird' to us. But the model is not fooled¶"
+  },
+  {
+   "metadata": {},
+   "cell_type": "code",
+   "source": [
+    "import pandas as pd\n",
+    "# Taking a known email from spam_assassin data-set which was marked as ham ('0')\n",
+    "prediction1 = model.predict(pd.Series(\"From ilug-admin@linux.ie Mon Jul 29 11:28:02 2002 Return-Path: <ilug-admin@linux.ie> Delivered-To: yyyy@localhost.netnoteinc.com Received: from localhost (localhost [127.0.0.1]) by phobos.labs.netnoteinc.com (Postfix) with ESMTP id A13D94414F for <jm@localhost>; Mon, 29 Jul 2002 06:25:11 -0400 (EDT) Received: from phobos [127.0.0.1] by localhost with IMAP (fetchmail-5.9.0) for jm@localhost (single-drop); Mon, 29 Jul 2002 11:25:11 +0100 (IST) Received: from lugh.tuatha.org (root@lugh.tuatha.org [194.125.145.45]) by dogma.slashnull.org (8.11.6/8.11.6) with ESMTP id g6RHn7i17130 for <jm-ilug@jmason.org>; Sat, 27 Jul 2002 18:49:07 +0100 Received: from lugh (root@localhost [127.0.0.1]) by lugh.tuatha.org (8.9.3/8.9.3) with ESMTP id SAA25016; Sat, 27 Jul 2002 18:45:03 +0100 X-Authentication-Warning: lugh.tuatha.org: Host root@localhost [127.0.0.1] claimed to be lugh Received: from mail1.mail.iol.ie (mail1.mail.iol.ie [194.125.2.192]) by lugh.tuatha.org (8.9.3/8.9.3) with ESMTP id SAA24977 for <ilug@linux.ie>; Sat, 27 Jul 2002 18:44:56 +0100 Received: from dialup125-a.ts551.cwt.esat.net ([193.203.140.125] helo=Hobbiton.cod.ie) by mail1.mail.iol.ie with esmtp (Exim 3.35 #1) id 17YVVF-0001W4-00 for ilug@linux.ie; Sat, 27 Jul 2002 18:37:18 +0100 Received: (from cdaly@localhost) by Hobbiton.cod.ie (8.11.6/8.9.3) id g6RDRoO04681 for ilug@linux.ie; Sat, 27 Jul 2002 14:27:50 +0100 Date: Sat, 27 Jul 2002 14:27:49 +0100 From: Conor Daly <conor.daly@oceanfree.net> To: ILUG main list <ilug@linux.ie> Subject: Re: [ILUG] Architecture crossover trouble w RH7.2 (solved) Message-Id: <20020727142749.B4438@Hobbiton.cod.ie> Mail-Followup-To: ILUG main list <ilug@linux.ie> References: <0D443C91DCE9CD40B1C795BA222A729E018854FA@milexc01.maxtor.com> MIME-Version: 1.0 Content-Type: text/plain; charset=us-ascii Content-Disposition: inline User-Agent: Mutt/1.2.5i In-Reply-To: <0D443C91DCE9CD40B1C795BA222A729E018854FA@milexc01.maxtor.com>; from conor_wynne@maxtor.com on Fri, Jul 26, 2002 at 03:56:22PM +0100 Sender: ilug-admin@linux.ie Errors-To: ilug-admin@linux.ie X-Mailman-Version: 1.1 Precedence: bulk List-Id: Irish Linux Users' Group <ilug.linux.ie> X-Beenthere: ilug@linux.ie On Fri, Jul 26, 2002 at 03:56:22PM +0100 or so it is rumoured hereabouts, Wynne, Conor thought: > Surely it would be faster to save you conf files, install it on the box > again, copy back you confs and voila. > All you car about are the confs as the boite has no DATA right? Yeah, but then I'd have to remember _exactly_ which confs I'd modified and they're not all in /etc either... > Thats what I would do, but you sysadmins have to make life as difficult & > complicated as possible ;--) Yup... In this case, I had two issues. 1. I mirrored the disk to give to someone else to work on but the box he has available has only a P1 or P2 processor. 2. My celeron box has been crashing the backup software so I wanted to try out the backup in a different box to make sure it's hardware related. Again, it's also an interesting exercise... > Have you thought about mirroring the system drives? Might save you serious > hassle down the line. Oh, I'm doing that too. This is going to Africa so I'm aiming for as robust as possible with belt, braces and probably an all-in-one jumpsuit! I'll be mirroring the disk but that is worth only so much (eg. lightning strike taking out the disk(s) or system compromise) I'm also going for a backup to CDR with an automated restore http://www.mondorescue.org . The admin out there wouldn't be able to build the system again if the mobo got fried and the replacement was the wrong arch but an i386 compatible install will mean just dropping in the HD and booting (ish)... Conor -- Conor Daly <conor.daly@oceanfree.net> Domestic Sysadmin :-) --------------------- Faenor.cod.ie 2:32pm up 64 days, 23:49, 0 users, load average: 0.00, 0.00, 0.00 Hobbiton.cod.ie 2:19pm up 7 days, 20:56, 1 user, load average: 0.05, 0.02, 0.00 -- Irish Linux Users' Group: ilug@linux.ie http://www.linux.ie/mailman/listinfo/ilug for (un)subscription information. List maintainer: listmaster@linux.ie\"))[0]\n",
+    "print(prediction1)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Here is an email that I fabricated on the fly (un-known data) with all characteristics of a spam. Let's see if it is correctly detected as such.¶"
+  },
+  {
+   "metadata": {},
+   "cell_type": "code",
+   "source": [
+    "prediction2 = model.predict(pd.Series('Hey! you have won a lottery! For claiming your prize send us your bank account number on http://superlottojackpot.com. Further on the basis of this victory we can give you cash loan of $200000000 at rate of just 0.5% per annum without any collateral and gurantee. Send us your bank account details. If you do not have bank account we can offer you one account with 5 credit cards which are life time free and which have annual interest rate of only 1%. Each has spending limit of $50000'))[0]\n",
+    "print(prediction2)"
+   ],
+   "outputs": [],
+   "execution_count": null
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": " # so far so good. Now (A) Building and using streamlit app. (B) Creating docker containers for model tracking  and model drift analysis"
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# now model front_end and model back_end were built and can be seen in Containers section of docker desktop under e2e_spam_classifier"
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": [
+    "# (3) Execute command after making cd to E2E_SPAM_CLASSIFIER :  PS TEJAS_E2E_EMAIL_SPAM\\E2E_SPAM_CLASSIFIER> docker-compose build.\n",
+    " # PS D:\\TEAJS_E2E_EMAIL_SPAM\\E2E_SPAM_CLASSIFIER> docker-compose up"
+   ]
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# click on streamlit app UI 8501:8501 so that streamlit app opens in a browser at localhost: and paste 3 test emails from PUT_IN_STREAMLIT_APP.txt"
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "#  Now make a cd to TEJAS_E2E_EMAIL_SPAM\\E2E_SPAM_CLASSIFIER\\docker_airflow. Inside logs folder you will find 'dag_processor_manager' folder and 'scheduler folder'. Empty the contents of these two.  Even the two folders can be deleted."
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": [
+    "# Now  cd to scripts\\project_spam_classifier execute in same directory  docker build -t drift_detection_env .\n",
+    "# (venv) PS C:\\TEAJS_E2E_EMAIL_SPAM\\E2E_SPAM_CLASSIFIER\\docker_airflow\\scripts\\project_spam_classifier>docker build -t drift_detection_env ."
+   ]
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# # Next execute (venv) PS C:\\TEAJS_E2E_EMAIL_SPAM\\E2E_SPAM_CLASSIFIER\\docker_airflow\\scripts\\project_spam_classifier> docker-compose build\n"
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# Next execute (venv) PS C:\\TEAJS_E2E_EMAIL_SPAM\\E2E_SPAM_CLASSIFIER\\docker_airflow\\scripts\\project_spam_classifier> docker-compose up"
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# now seven more containers will be built and can be seen in Containers section of docker desktop under docker_airflow"
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# open airflow-webserver-1 at local host 8080:8080 and login with username 'airflow' and password 'airflow'. A DAG named spam_classifier_monthly_model_retraining  will be seen. Here we will discuss code underlying it."
+  },
+  {
+   "metadata": {},
+   "cell_type": "markdown",
+   "source": "# now click Trigger DAG under Actions tab. Click the link spam_classifier_monthly_model_retraining. click the Graph tab"
+  },
+  {
+   "metadata": {},
+   "cell_type": "code",
+   "source": "",
+   "outputs": [],
+   "execution_count": null
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "spam_ham_venv",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.2"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
